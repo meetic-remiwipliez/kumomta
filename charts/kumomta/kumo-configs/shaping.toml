@@ -1,0 +1,130 @@
+###################################
+# Traffic Shaping Configuration for example.com
+###################################
+# 
+# This file configures traffic shaping (rate limiting, connection limits)
+# for outbound email delivery. These settings control how KumoMTA connects
+# to remote mail servers and how fast it sends messages.
+#
+# The TSA (Traffic Shaping Automation) will dynamically adjust these
+# settings based on reputation and delivery performance.
+#
+# See: https://docs.kumomta.com/userguide/configuration/trafficshaping/
+#      https://docs.kumomta.com/reference/kumo/make_egress_path
+#      https://github.com/KumoCorp/kumomta/blob/main/assets/policy-extras/shaping.toml
+#
+# Configuration format:
+#   ['routing_domain'] = settings for specific domain
+#   ['default'] = default settings for all domains
+#
+# TSA endpoints use special format:
+#   ['http://tsa-pod-0.tsa-service:port.tsa.kumomta'] = TSA-specific settings
+
+###################################
+# Default Shaping Settings
+###################################
+# These apply to all destination domains unless overridden
+# TSA will dynamically adjust these based on reputation
+
+['default']
+# Maximum number of messages ready to send at once
+# Higher values allow more parallelism but use more memory
+max_ready = 100
+
+# Maximum number of concurrent SMTP connections
+# Should be tuned based on CPU cores and network capacity
+# Rule of thumb: 1-2x number of CPU cores
+connection_limit = 200
+
+# Maximum message sending rate (messages per second)
+# This is a global rate limit for this egress path
+max_message_rate = "100/s"
+
+# TLS configuration:
+# - "Required": Always use TLS (recommended for production)
+# - "Opportunistic": Use TLS if available, fallback to plain
+# - "OpportunisticInsecure": Use TLS if available, allow plain as fallback
+# - "Disabled": Never use TLS (not recommended)
+enable_tls = "OpportunisticInsecure"
+
+# Connection timeout settings (optional, defaults are usually fine)
+# connect_timeout = "60s"
+# idle_timeout = "60s"
+
+###################################
+# Domain-Specific Shaping Overrides
+###################################
+# Override default settings for specific destination domains
+# These are useful for domains with known rate limits or requirements
+
+# Example: Gmail-specific shaping
+# Gmail has strict rate limits, so we use conservative settings
+# ['gmail.com']
+# max_ready = 50
+# connection_limit = 100
+# max_message_rate = "50/s"
+# enable_tls = "Required"  # Gmail requires TLS
+
+# Example: Outlook/Hotmail-specific shaping
+# ['outlook.com']
+# max_ready = 75
+# connection_limit = 150
+# max_message_rate = "75/s"
+# enable_tls = "Required"
+
+# Example: Yahoo-specific shaping
+# ['yahoo.com']
+# max_ready = 60
+# connection_limit = 120
+# max_message_rate = "60/s"
+# enable_tls = "Required"
+
+###################################
+# TSA Endpoint Configuration
+###################################
+# Special configuration for TSA (Traffic Shaping Automation) endpoints
+# These settings allow high-throughput communication between MTA and TSA pods
+# The routing domain format is: http://pod-name.service:port.tsa.kumomta
+#
+# NOTE: Update these hostnames to match your actual TSA StatefulSet
+# The pattern is: http://<pod-name>.<headless-service>.<namespace>.svc.cluster.local:8008.tsa.kumomta
+# 
+# For namespace 'kumomta' and release name 'kumomta':
+# - Pod names: kumomta-tsa-0, kumomta-tsa-1, kumomta-tsa-2, etc.
+# - Headless service: kumomta-tsa-headless
+# - Full FQDN: kumomta-tsa-0.kumomta-tsa-headless.kumomta.svc.cluster.local
+#
+# If your release name is different, adjust accordingly:
+# - If release name is 'my-release', fullname will be 'my-release-kumomta'
+# - Pod names: my-release-kumomta-tsa-0, my-release-kumomta-tsa-1, etc.
+# - Headless service: my-release-kumomta-tsa-headless
+
+# TSA Pod 0
+['http://kumomta-tsa-0.kumomta-tsa-headless.kumomta.svc.cluster.local:8008.tsa.kumomta']
+max_deliveries_per_connection = 1000000  # Very high for internal communication
+mx_rollup = false  # Don't rollup MX records for TSA
+max_message_rate = '500000/s'  # Very high rate for TSA
+max_connection_rate = '1000/s'  # High connection rate
+idle_timeout = '60 s'
+connection_limit = 100
+max_ready = 1024  # High ready queue for TSA
+
+# TSA Pod 1 (if you have multiple TSA replicas)
+['http://kumomta-tsa-1.kumomta-tsa-headless.kumomta.svc.cluster.local:8008.tsa.kumomta']
+max_deliveries_per_connection = 1000000
+mx_rollup = false
+max_message_rate = '500000/s'
+max_connection_rate = '1000/s'
+idle_timeout = '60 s'
+connection_limit = 100
+max_ready = 1024
+
+# TSA Pod 2 (if you have multiple TSA replicas)
+['http://kumomta-tsa-2.kumomta-tsa-headless.kumomta.svc.cluster.local:8008.tsa.kumomta']
+max_deliveries_per_connection = 1000000
+mx_rollup = false
+max_message_rate = '500000/s'
+max_connection_rate = '1000/s'
+idle_timeout = '60 s'
+connection_limit = 100
+max_ready = 1024

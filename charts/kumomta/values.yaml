@@ -1,0 +1,460 @@
+# Default values for kumomta.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+#
+# Configuration for example.com domain
+# See README.md for deployment instructions
+
+kumoConfigFiles: []
+
+replicaCount: 1
+
+image:
+  repository: ghcr.io/kumocorp/kumomta
+  pullPolicy: IfNotPresent
+  tag: 2025.01.29-833f82a8
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+deployment:
+  args:
+    - --policy=/opt/kumomta/etc/policy/init.lua
+    - --user=kumod
+  command:
+    - /opt/kumomta/sbin/kumod
+
+env:
+  - name: KUMOD_LOG
+    value: kumod=debug
+  # Redis configuration for shared throttles
+  # Pointing to Dragonfly in the dragonflydb namespace
+  - name: KUMOMTA_REDIS_HOST
+    value: "redis://dragonflydb.dragonflydb.svc.cluster.local"
+  - name: KUMOMTA_REDIS_POOL_SIZE
+    value: "100"
+  - name: KUMOMTA_REDIS_READ_FROM_REPLICAS
+    value: "true"
+  # TSA configuration
+  # NOTE: Adjust service names if your release name is different from 'kumomta'
+  # Service name format: <release-name>-<chart-name>-tsa.<namespace>.svc.cluster.local
+  # If release name is 'kumomta', fullname will be 'kumomta', so service is 'kumomta-tsa'
+  - name: KUMOMTA_TSA_PUBLISH_HOST
+    value: "http://kumomta-tsa.kumomta.svc.cluster.local:8008"
+  - name: KUMOMTA_TSA_SUBSCRIBE_HOST
+    value: "http://kumomta-tsa.kumomta.svc.cluster.local:8008"
+  # Sink mode configuration (enabled by default)
+  # All emails will be routed to the sink pod instead of real recipients
+  # NOTE: Adjust the endpoint to match your release name
+  # Service name format: <release-name>-<chart-name>-sink.<namespace>.svc.cluster.local
+  # If release name is 'kumomta', fullname will be 'kumomta', so service is 'kumomta-sink'
+  - name: KUMOMTA_SINK_ENABLED
+    value: "true"
+  - name: KUMOMTA_SINK_ENDPOINT
+    value: "kumomta-sink.kumomta.svc.cluster.local"
+  # Thread configuration (adjust based on CPU resources)
+  - name: KUMOMTA_SPOOLIN_THREADS
+    value: "8"
+  - name: KUMOMTA_HTTPIN_THREADS
+    value: "8"
+  # Trusted hosts for HTTP API (comma-separated)
+  - name: KUMOMTA_TRUSTED_HOSTS
+    value: "0.0.0.0"
+
+serviceAccount:
+  # Specifies whether a service account should be created
+  create: true
+  # Automatically mount a ServiceAccount's API credentials?
+  automount: true
+  # Annotations to add to the service account
+  annotations: {}
+  # The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: ""
+
+podAnnotations: {}
+podLabels: {}
+
+podSecurityContext:
+  runAsUser: 999
+  fsGroup: 999
+  sysctls:
+    - name: net.ipv4.ip_local_port_range
+      value: "5000 63000"
+  # fsGroup: 2000
+
+securityContext:
+  {}
+  # capabilities:
+  #   drop:
+  #   - ALL
+  # readOnlyRootFilesystem: true
+  # runAsNonRoot: true
+  # runAsUser: 1000
+
+service:
+  type: ClusterIP
+  httpPort: 8000
+  metricsPort: 8080
+  smtpPort: 2500
+
+serviceMonitor:
+  enabled: false
+  # https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/user-guides/basic-auth.md
+  # https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/api.md#monitoring.coreos.com/v1.BasicAuth
+  # basicAuth: {}
+  # basicAuth:
+  #   username:
+  #     name: foo # name of secret
+  #     key: username # key in secret
+  #   password:
+  #     name: foo # name of secret
+  #     key: username # key in secret
+
+ingress:
+  enabled: false
+  className: "nginx-internal"
+  annotations:
+    {}
+    # kubernetes.io/ingress.class: nginx
+    # kubernetes.io/tls-acme: "true"
+  hosts:
+    - host: chart-example.local
+      paths:
+        - path: /
+          pathType: ImplementationSpecific
+  tls: []
+  #  - secretName: chart-example-tls
+  #    hosts:
+  #      - chart-example.local
+
+resources:
+  limits:
+    cpu: 100m
+    memory: 128Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
+
+# livenessProbe:
+# httpGet:
+#   path: /
+#   port: http
+readinessProbe:
+  httpGet:
+    path: /api/check-liveness/v1
+    port: http
+
+# Init containers - run before main container starts
+# Wait for TSA to be ready before starting MTA to avoid connection errors
+# This prevents "Connection refused" errors when the shaping helper tries to connect to TSA
+initContainers:
+  - name: wait-for-tsa
+    image: busybox:1.36
+    command:
+      - sh
+      - -c
+      - |
+        echo "Waiting for TSA service to be ready..."
+        # Wait for TSA service to be accessible on port 8008
+        # This matches the service name configured in KUMOMTA_TSA_SUBSCRIBE_HOST
+        until nc -z kumomta-tsa.kumomta.svc.cluster.local 8008; do
+          echo "TSA not ready yet, waiting 2 seconds..."
+          sleep 2
+        done
+        echo "TSA is ready! Proceeding with MTA startup..."
+
+lifecycleHook:
+  preStop:
+    exec:
+      command:
+        - /bin/sh
+        - -c
+        - sleep 15
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 100
+  targetCPUUtilizationPercentage: 80
+  # targetMemoryUtilizationPercentage: 80
+  # additionalMetrics: []
+
+# Additional volumes on the output StatefulSet definition.
+volumes:
+  - name: kumo-configs
+    configMap:
+      name: kumo-configs
+  - name: http-listener-keys
+    secret:
+      secretName: http-listener-keys
+      optional: true
+  - name: dkim-keys
+    secret:
+      secretName: dkim-keys
+      optional: true
+  - name: kumo-logs
+    emptyDir: {}
+  # Spool volumes - use EmptyDir if PVC is disabled
+  # If PVC is enabled, the spool will be mounted from the PVC
+  - name: spool
+    emptyDir: {}
+
+# Additional volumeMounts on the output StatefulSet definition.
+volumeMounts:
+  - name: kumo-configs
+    mountPath: "/opt/kumomta/etc/policy"
+    readOnly: true
+  - name: http-listener-keys
+    mountPath: "/opt/kumomta/etc/http_listener_keys/"
+    readOnly: true
+  - name: dkim-keys
+    mountPath: "/opt/kumomta/etc/policy/dkim"
+    readOnly: true
+  - name: kumo-logs
+    mountPath: "/var/log/kumomta"
+  # Spool volume mount - uses EmptyDir if PVC is disabled
+  - name: spool
+    mountPath: "/var/spool/kumomta"
+
+# PVC disabled by default - enable if you need persistent storage for queues
+# WARNING: Enabling PVC requires a StorageClass configured in your cluster
+volumeClaimTemplates: []
+  # - metadata:
+  #     name: spool
+  #   spec:
+  #     accessModes: ["ReadWriteOnce"]
+  #     resources:
+  #       requests:
+  #         storage: 25Gi
+
+tolerations: []
+
+affinity: {}
+
+topologySpreadConstraints: []
+
+tsa:
+  autoscaling:
+    enabled: false
+    minReplicas: 1
+    maxReplicas: 100
+    targetCPUUtilizationPercentage: 80
+    # targetMemoryUtilizationPercentage: 80
+    # additionalMetrics: []
+  deployment:
+    command:
+      - /opt/kumomta/sbin/tsa-daemon
+      - --policy
+      - /opt/kumomta/etc/policy/tsa_init.lua
+    # args: []
+  # livenessProbe:
+  # httpGet:
+  #   path: /
+  #   port: http
+  # Environment variables for TSA pods
+  env:
+    # Trusted hosts for TSA HTTP listener
+    # Allows health checks from Kubernetes cluster IPs without authentication
+    # Default includes common Kubernetes pod IP ranges
+    # Adjust based on your cluster's pod CIDR (check with: kubectl cluster-info dump | grep -i cidr)
+    - name: KUMOMTA_TSA_TRUSTED_HOSTS
+      value: "10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,127.0.0.1"
+      # For more restrictive access, use only your cluster's pod CIDR:
+      # value: "10.244.0.0/16"  # Example for a specific cluster
+  # Readiness probe using HTTP endpoint
+  # Requires trusted_hosts to be configured (see env above)
+  readinessProbe:
+    httpGet:
+      path: /get_config_v1/shaping.toml
+      port: http
+    initialDelaySeconds: 10
+    periodSeconds: 10
+    timeoutSeconds: 5
+    successThreshold: 1
+    failureThreshold: 3
+  lifecycleHook:
+    preStop:
+      exec:
+        command:
+          - /bin/sh
+          - -c
+          - sleep 15
+  podLabels: {}
+  ingress:
+    enabled: false
+    className: "nginx-internal"
+    annotations:
+      {}
+      # kubernetes.io/ingress.class: nginx
+      # kubernetes.io/tls-acme: "true"
+    hosts:
+      - host: chart-example.local
+        paths:
+          - path: /
+            pathType: ImplementationSpecific
+    tls: []
+    #  - secretName: chart-example-tls
+    #    hosts:
+    #      - chart-example.local
+    # Additional volumes on the TSA deployment definition.
+  # PVC disabled by default - enable if you need persistent storage
+  volumeClaimTemplates: []
+    # - metadata:
+    #     name: tsa-spool
+    #   spec:
+    #     accessModes: ["ReadWriteOnce"]
+    #     resources:
+    #       requests:
+    #         storage: 5Gi
+  volumes:
+    - name: kumo-configs
+      configMap:
+        name: kumo-configs
+    - name: http-listener-keys
+      secret:
+        secretName: http-listener-keys
+        optional: true
+    - name: kumo-logs
+      emptyDir: {}
+    # TSA spool volume - use EmptyDir if PVC is disabled
+    - name: tsa-spool
+      emptyDir: {}
+
+  # Additional volumeMounts on the TSA deployment definition.
+  volumeMounts:
+    - name: kumo-configs
+      mountPath: "/opt/kumomta/etc/policy"
+      readOnly: true
+    - name: http-listener-keys
+      mountPath: "/opt/kumomta/etc/http_listener_keys/"
+      readOnly: true
+    - name: kumo-logs
+      mountPath: "/var/log/kumo"
+    # TSA spool volume mount - uses EmptyDir if PVC is disabled
+    - name: tsa-spool
+      mountPath: "/var/spool/kumomta"
+  resources: {}
+    # limits:
+    #   cpu: 100m
+    #   memory: 128Mi
+    # requests:
+    #   cpu: 100m
+    #   memory: 128Mi
+  service:
+    type: ClusterIP
+    httpPort: 8008
+
+  tolerations: []
+
+  affinity: {}
+
+sink:
+  enabled: true
+  autoscaling:
+    enabled: false
+    minReplicas: 1
+    maxReplicas: 100
+    targetCPUUtilizationPercentage: 80
+    # targetMemoryUtilizationPercentage: 80
+    # additionalMetrics: []
+  deployment:
+    command:
+      - /opt/kumomta/sbin/kumod
+      - --policy
+      - /opt/kumomta/etc/policy/sink.lua
+    # args: []
+  # livenessProbe:
+  # httpGet:
+  #   path: /
+  #   port: http
+  # readinessProbe:
+  lifecycleHook:
+    preStop:
+      exec:
+        command:
+          - /bin/sh
+          - -c
+          - sleep 15
+
+  podLabels: {}
+
+  service:
+    type: ClusterIP
+    httpPort: 8008
+    smtpPort: 25
+
+  ingress:
+    enabled: false
+    className: "nginx-internal"
+    annotations:
+      {}
+      # kubernetes.io/ingress.class: nginx
+      # kubernetes.io/tls-acme: "true"
+    hosts:
+      - host: chart-example.local
+        paths:
+          - path: /
+            pathType: ImplementationSpecific
+    tls: []
+    #  - secretName: chart-example-tls
+    #    hosts:
+    #      - chart-example.local
+    # Additional volumes on the sink deployment definition.
+  resources:
+    limits:
+      cpu: 100m
+      memory: 128Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+  volumes:
+    - name: sink-configs
+      configMap:
+        name: sink-configs
+    - name: kumo-logs
+      emptyDir: {}
+  volumeMounts:
+    - name: sink-configs
+      mountPath: "/opt/kumomta/etc/policy"
+      readOnly: true
+    - name: kumo-logs
+      mountPath: "/var/log/kumo"
+
+## Extra manifests to deploy as an array
+extraManifests:
+  []
+  # - apiVersion: v1
+  #   kind: ConfigMap
+  #   metadata:
+  #     labels:
+  #       name: prometheus-extra
+  #   data:
+  #     extra-data: "value"
+
+## Secrets configuration
+# Secrets are created by the chart if enabled
+# Set create: false if you want to manage secrets externally
+secrets:
+  dkim:
+    # Create DKIM secret (set to false if managing externally)
+    create: true
+    # Custom keys (base64 encoded)
+    # keys:
+    #   example.com.default.key: "LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS0tCk1JSUV2Z0lCQURBTkJna3Foa2lHOXcwQkFRRUZBQVNDQktnd2dnU2tBZ0VBQW9JQkFRQ3VndUo4aUdGU3huelAKV2lGT1U1VjYvZ3M1Ym1seDRoQ2Rib3NhdFpDeVc1U2tOei9Jd3ZBZVl4RWZzcmpzSHdrQ2hjMXM3ME4wUCt6UgpIdkJ2SXBWRjJrc0hUTTkzaE8wb0dpbWtpTUpNaGJicE5MMEpKdVAwL2ErbzJkU3Rsa1N2d2FKeGVzUlljTTAvCjBOMGhRb0NjU01DNCt1WGtBSEtHNlh5Y09jdlBhME5UT29NSHFrbWhDYWxmbVB3enU4TkRiWVZwZzltV3F3azcKK3pzbXE3aXRkNmJhbk1Tdlg1Vnh5TUxFRFNyVzBITkRpYTVuRWsvWERyWUVLSHQ5Sy9Cd0xXZDJvZjRZVmpIRgo5SnZieWpvcG51TWhVNWtkd1RMMHFkYjBJcXREUGwyL291d21yVnZRVkd4OWxxM3QyMU0yU0UvVGpDWVh0djFiCkZkZEpuejNQQWdNQkFBRUNnZ0VBRUVGazNpWWVCVnN6MlE5bzRYdVdXdm5sdGNNbWZmM2UxUUN0RGNuZE5wLzMKNSt3SzV2cUc2aGhlOUtMdDZDQzVTQ0RmNThaMGRCUllUTi9ObEZkQkFiRmtkOE9jalF6aGJSdUlIQ2x1WCtPOAp0ckJtUTJuNSswelRoZ09mSDA3MkN2WndnK2c1b3p0WldHNXVOV0RxZGZtdVAySXZub2k1ZDZrRzBIbEVhNGVjCjUrMFMvVmQwS2ZJOWdWRjBxbjhlRW9RVTFhUm9WdEp1eWlYME0wZElBSng0NjdOYkFMeDlZMzIvTGtQVGh2SGUKazdzQk1pNUowV3ljeERMdkxpZ3NlZ3BrNXRZd3U5bStZOG1FcXVxa0NHVGhJc0s0Yk5PUFRiMm80cmF6QXlWegpYOW5hN3VnMWUwS0xhS1hQT2Y5RldLbjlSdEhvRmNaSlIvZCs2MHR5MFFLQmdRRFo3YmF3T1lkQXNQZGxuZFQzCmYxYSsvcmh6bmpFV1pMY1RtU3crZ1MvNHhNU0NZb2sxSXNqZ3lMWU1DUU9rWHcrVGkyaGs0ZHdOVURscW9vRmIKYjgzd2YxUzhaQ2owK1JxWEJ1ZDdjM2dCWlozVFRzaUtsVnMwZzdaUVAwbVk1eExmaWJhaElRTEhFOVg3ZDhUWApTLzlNaGhBOFYzcjlsSnpFUnk1TnllZWNuUUtCZ1FETS8zSVdvNHBGb1F4eDJTQU5mQzdCdC82WVZXNzR2SllLCmhmUTE3eDJDZHV5QVd3dTBEbzJQQU9UQXJzY2kva2RXaGplQWZWSmlhTkZKNU1oVi9hNjlnYTZHbnZBSm41NUEKK0FmdmZpODFRVytSRGJ2UnpVR3NNWjNsZHRSTmQ1TjRaWjhnb3J4QzVyVWY5RDFkaUI1UHFJQzgrdjg2WEtWMQprTWhiSzFzNld3S0JnQ1QxQlNnNWVWQmxNbTlQSnRDYURiSHlMSUdlOENBbUVFNElpZEpId2tUanlaZDY4bDNLCmVscDBienIzUkdEWnBpQ1ZZYXpLQ0xGUlM0dGo1NkFFQTk2bkdVMmhocmlVamdmU3FlcnJtQXhVbVVFK2VRL1gKYUZJdGkvdHI0Q1ZIK3BGaUgxQ1A4cEtrTUlPbXVnRHc2R2lueTVVUUdORnNKSEc4eUlOMG5BeVpBb0dCQU1vMwprY3RUTjZySDJ3YlRNQk1kVk9Jekppb08zSkR4TnZEYWdyUlJVOExHblRWZ21vTGJlRGlBb1NhUlFrNzZsbFI3CndYUTJLM1ozL3p2dE90SFlsTzdMWmVYV0V1THJXYWl0QXViMGlvejJKNS9tOUVkWk9sY3ArcC9JUUZUS2grWlUKR0V5Uk96U2pjRGc5TGV0OXdxakJoM3pqKzdFT2d3a2Q4UVkrRnBmUkFvR0JBSzlxVGVWYkdOUEJ3RDJaYy9PdApBL1QzZ1pITlJOcjB3VEpkNmd2UlprdGh0VlhRLzJxcUdWNDR3MXhTRWx5SW1RdTBqV0F3NVJQMW84bHM4cmJNCnFrbDZKMzVQMWhaRWp6MldGZUdjZ1RoMytHSlkzWC9HS250akdBaWJUL2w4ZVV4TW5VbC9SdU1DQmJ6YUdMbXEKWmtsZHNxSDlXY3ZYYm1tQlY3WWNtQWFFCi0tLS0tRU5EIFBSSVZBVEUgS0VZLS0tLS0K"
+    # Default key - a valid 2048-bit RSA key (base64 encoded)
+    # This key is generated for testing purposes
+    # WARNING: For production, generate your own key and update this value
+    # To generate: openssl genrsa 2048 | base64
+    defaultKey: "LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS0tCk1JSUV2Z0lCQURBTkJna3Foa2lHOXcwQkFRRUZBQVNDQktnd2dnU2tBZ0VBQW9JQkFRQ3VndUo4aUdGU3huelAKV2lGT1U1VjYvZ3M1Ym1seDRoQ2Rib3NhdFpDeVc1U2tOei9Jd3ZBZVl4RWZzcmpzSHdrQ2hjMXM3ME4wUCt6UgpIdkJ2SXBWRjJrc0hUTTkzaE8wb0dpbWtpTUpNaGJicE5MMEpKdVAwL2ErbzJkU3Rsa1N2d2FKeGVzUlljTTAvCjBOMGhRb0NjU01DNCt1WGtBSEtHNlh5Y09jdlBhME5UT29NSHFrbWhDYWxmbVB3enU4TkRiWVZwZzltV3F3azcKK3pzbXE3aXRkNmJhbk1Tdlg1Vnh5TUxFRFNyVzBITkRpYTVuRWsvWERyWUVLSHQ5Sy9Cd0xXZDJvZjRZVmpIRgo5SnZieWpvcG51TWhVNWtkd1RMMHFkYjBJcXREUGwyL291d21yVnZRVkd4OWxxM3QyMU0yU0UvVGpDWVh0djFiCkZkZEpuejNQQWdNQkFBRUNnZ0VBRUVGazNpWWVCVnN6MlE5bzRYdVdXdm5sdGNNbWZmM2UxUUN0RGNuZE5wLzMKNSt3SzV2cUc2aGhlOUtMdDZDQzVTQ0RmNThaMGRCUllUTi9ObEZkQkFiRmtkOE9jalF6aGJSdUlIQ2x1WCtPOAp0ckJtUTJuNSswelRoZ09mSDA3MkN2WndnK2c1b3p0WldHNXVOV0RxZGZtdVAySXZub2k1ZDZrRzBIbEVhNGVjCjUrMFMvVmQwS2ZJOWdWRjBxbjhlRW9RVTFhUm9WdEp1eWlYME0wZElBSng0NjdOYkFMeDlZMzIvTGtQVGh2SGUKazdzQk1pNUowV3ljeERMdkxpZ3NlZ3BrNXRZd3U5bStZOG1FcXVxa0NHVGhJc0s0Yk5PUFRiMm80cmF6QXlWegpYOW5hN3VnMWUwS0xhS1hQT2Y5RldLbjlSdEhvRmNaSlIvZCs2MHR5MFFLQmdRRFo3YmF3T1lkQXNQZGxuZFQzCmYxYSsvcmh6bmpFV1pMY1RtU3crZ1MvNHhNU0NZb2sxSXNqZ3lMWU1DUU9rWHcrVGkyaGs0ZHdOVURscW9vRmIKYjgzd2YxUzhaQ2owK1JxWEJ1ZDdjM2dCWlozVFRzaUtsVnMwZzdaUVAwbVk1eExmaWJhaElRTEhFOVg3ZDhUWApTLzlNaGhBOFYzcjlsSnpFUnk1TnllZWNuUUtCZ1FETS8zSVdvNHBGb1F4eDJTQU5mQzdCdC82WVZXNzR2SllLCmhmUTE3eDJDZHV5QVd3dTBEbzJQQU9UQXJzY2kva2RXaGplQWZWSmlhTkZKNU1oVi9hNjlnYTZHbnZBSm41NUEKK0FmdmZpODFRVytSRGJ2UnpVR3NNWjNsZHRSTmQ1TjRaWjhnb3J4QzVyVWY5RDFkaUI1UHFJQzgrdjg2WEtWMQprTWhiSzFzNld3S0JnQ1QxQlNnNWVWQmxNbTlQSnRDYURiSHlMSUdlOENBbUVFNElpZEpId2tUanlaZDY4bDNLCmVscDBienIzUkdEWnBpQ1ZZYXpLQ0xGUlM0dGo1NkFFQTk2bkdVMmhocmlVamdmU3FlcnJtQXhVbVVFK2VRL1gKYUZJdGkvdHI0Q1ZIK3BGaUgxQ1A4cEtrTUlPbXVnRHc2R2lueTVVUUdORnNKSEc4eUlOMG5BeVpBb0dCQU1vMwprY3RUTjZySDJ3YlRNQk1kVk9Jekppb08zSkR4TnZEYWdyUlJVOExHblRWZ21vTGJlRGlBb1NhUlFrNzZsbFI3CndYUTJLM1ozL3p2dE90SFlsTzdMWmVYV0V1THJXYWl0QXViMGlvejJKNS9tOUVkWk9sY3ArcC9JUUZUS2grWlUKR0V5Uk96U2pjRGc5TGV0OXdxakJoM3pqKzdFT2d3a2Q4UVkrRnBmUkFvR0JBSzlxVGVWYkdOUEJ3RDJaYy9PdApBL1QzZ1pITlJOcjB3VEpkNmd2UlprdGh0VlhRLzJxcUdWNDR3MXhTRWx5SW1RdTBqV0F3NVJQMW84bHM4cmJNCnFrbDZKMzVQMWhaRWp6MldGZUdjZ1RoMytHSlkzWC9HS250akdBaWJUL2w4ZVV4TW5VbC9SdU1DQmJ6YUdMbXEKWmtsZHNxSDlXY3ZYYm1tQlY3WWNtQWFFCi0tLS0tRU5EIFBSSVZBVEUgS0VZLS0tLS0K"
+  httpListener:
+    # Create HTTP listener keys secret (set to false if managing externally)
+    create: true
+    # Custom keys (passwords as plain text, will be base64 encoded)
+    # keys:
+    #   api-user: "my-secure-password"
+    # Default password (plain text, will be base64 encoded in the secret)
+    # WARNING: Change this default password in production!
+    # To generate: openssl rand -hex 16
+    defaultPassword: "dfad6143b4520f8526e4f9a0b25ab42b"
