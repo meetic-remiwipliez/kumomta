@@ -1,0 +1,21 @@
+{
+  "envelope_sender": "test@example.com",
+  "content": {
+    "text_body": "Hello,\n\nThis is a test message from example.com domain.\n\nBest regards,\nExample.com Team",
+    "html_body": "<html><body><h1>Test Message from Example.com</h1><p>Hello,</p><p>This is a test message from <strong>example.com</strong> domain.</p><p>Best regards,<br/>Example.com Team</p></body></html>",
+    "from": {
+      "email": "test@example.com",
+      "name": "Example.com Team"
+    },
+    "subject": "Test Example.com - Authorized Domain",
+    "reply_to": {
+      "email": "support@example.com",
+      "name": "Example.com Support"
+    }
+  },
+  "recipients": [
+    {
+      "email": "rwipliez@gmail.com"
+    }
+  ]
+}
