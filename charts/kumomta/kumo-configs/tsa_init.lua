@@ -6,7 +6,8 @@ kumo.on("tsa_init", function()
 		listen = "0.0.0.0:8008",
 		trusted_hosts = kumo.string.split(os.getenv("KUMOMTA_TSA_TRUSTED_HOSTS") or "127.0.0.1", ","),
 	})
-	kumo.set_diagnostic_log_filter("tsa_daemon=debug")
+	-- Enable debug logging for TSA components
+	kumo.set_diagnostic_log_filter("tsa_daemon=debug,tsa=debug,http=debug,lua=debug")
 end)
 
 local cached_load_shaping_data = kumo.memoize(kumo.shaping.load, {

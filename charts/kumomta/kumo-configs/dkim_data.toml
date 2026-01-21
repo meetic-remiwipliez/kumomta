@@ -1,82 +1,46 @@
 ###################################
-# DKIM Configuration for example.com
+# DKIM Configuration file
 ###################################
-# 
-# This file configures DKIM signing for KumoMTA.
-# DKIM keys are stored in Kubernetes Secrets and mounted at:
-# /opt/kumomta/etc/policy/dkim/
-#
-# See: https://docs.kumomta.com/userguide/configuration/dkim/
-#      https://docs.kumomta.com/userguide/configuration/dkim/#using-the-dkim_signlua-policy-helper
-#
-# To generate DKIM keys:
-#   openssl genrsa -out example.com.default.key 2048
-#   openssl rsa -in example.com.default.key -pubout -out example.com.default.pub
-#
-# To create Kubernetes Secret:
-#   kubectl create secret generic dkim-keys \
-#     --from-file=example.com.default.key=/path/to/example.com.default.key \
-#     --namespace=kumomta
-#
-# The Secret should be mounted as a volume in the StatefulSet.
+# TODO: this needs to be per environment in most likelihood
+# Edit this file to add more signing domains and their selector.
+# See: https://docs.kumomta.com/userguide/configuration/dkim/#using-the-dkim_signlua-policy-helper
+
 
 [base]
-# If these are present, we'll use Hashicorp Vault instead of reading from disk
-# vault_mount = "secret"
-# vault_path_prefix = "dkim/"
+# If these are present, we'll use hashicorp vault instead of reading from disk
+#vault_mount = "secret"
+#vault_path_prefix = "dkim/"
 
 # To do double or triple signing, add each additional
 # signature name to this list and see the `signature."MyESPName"`
 # block below
-# additional_signatures = ["MyESPName"]
-additional_signatures = []
+#additional_signatures = ["MyESPName"]
+#additional_signatures = []
 
 # Default selector to assume if the domain/signature block
 # doesn't specify one
-selector = 'default'
+  selector = 'defaultdk'
 
 # The default set of headers to sign if otherwise unspecified
-# These are standard headers that should be signed for good deliverability
-headers = [ "From", "To", "Subject", "Date", "MIME-Version", "Content-Type", "Sender" ]
+  headers = [ "From", "To", "Subject", "Date", "MIME-Version", "Content-Type", "Sender" ]
 
-###################################
-# Domain: example.com
-###################################
-# Primary domain configuration for example.com
-# The DKIM key file should be mounted from a Kubernetes Secret
-[domain.'example.com']
-  # Selector for DKIM record (must match DNS TXT record)
-  # DNS record format: default._domainkey.example.com
-  selector = 'default'
-  
-  # Signing algorithm (sha256 is recommended)
+[domain.'kumo.example.com']
+  selector = 'dkim1024'
   algo = 'sha256'
-  
-  # Headers to include in DKIM signature
-  # Including List-Unsubscribe headers is a best practice for marketing emails
-  headers = [
-    'From',
-    'To',
-    'Subject',
-    'Date',
-    'MIME-Version',
-    'Content-Type',
-    'Sender',
-    'List-Unsubscribe',
-    'List-Unsubscribe-Post'
-  ]
-  
-  # Path to DKIM private key file
-  # This file should be mounted from a Kubernetes Secret
-  # Secret key name: example.com.default.key
-  # Mount path: /opt/kumomta/etc/policy/dkim/
-  filename = "/opt/kumomta/etc/policy/dkim/example.com.default.key"
-  
-  # Signing policy:
-  # - "Always": Always sign messages from this domain
-  # - "TempFailIfNotInDNS": Reject if DKIM record not in DNS
-  # - "SignOnlyIfInDNS": Only sign if DKIM record exists in DNS
+#  headers = ['From','To','Subject','Date','MIME-Version','List-Unsubscribe','List-Unsubscribe-Post']
+  headers = ['From','To','Subject','Date','MIME-Version','x-job']
+# TODO: temporary lame config
+  filename = "/opt/kumomta/etc/policy/kumo.example.com.key"
   policy = "Always"
+
+[domain.'demo2.kumomta.com']
+#  selector = 'dkimselector'
+  algo = 'sha256'
+#  headers = ['From','To','Subject','Date','MIME-Version','List-Unsubscribe','List-Unsubscribe-Post']
+  headers = ['From','To','Subject','Date','MIME-Version','x-job']
+#  filename = "/var/customers/keys.key"
+  policy = "Always"
+
 
 
 

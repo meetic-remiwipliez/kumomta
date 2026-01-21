@@ -1,0 +1,15 @@
+###################################
+# DKIM Configuration for talk.stir.com
+# StirTalk Binding Group
+###################################
+# This file contains DKIM signing configuration for the talk.stir.com domain
+# Selector: 052024s2048
+# DNS record: 052024s2048._domainkey.talk.stir.com
+# The private key must be mounted at the specified filename path
+
+[domain.'talk.stir.com']
+  selector = '052024s2048'
+  algo = 'sha256'
+  headers = ['From','To','Subject','Date','MIME-Version','Content-Type','Sender']
+  filename = "/opt/kumomta/etc/policy/dkim/talk.stir.com.052024s2048.key"
+  policy = "Always"

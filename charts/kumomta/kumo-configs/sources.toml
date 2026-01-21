@@ -1,52 +1,25 @@
-###################################
-# Source IP Configuration for example.com
-###################################
-# 
-# This file configures the sending IP addresses (sources) and IP pools
-# that KumoMTA will use to connect to remote mail servers.
-#
-# See: https://docs.kumomta.com/userguide/configuration/sendingips/
-#
-# IMPORTANT: Defining sources and pools does nothing without routing policy
-# in init.lua to assign messages to these pools.
-#
-# In Kubernetes, the source IPs are typically the Pod IPs or Node IPs.
-# For production, you may want to use a kumo-proxy layer or configure
-# specific source IPs via egress policies.
-
-###################################
-# Source Definitions
-###################################
-# Define individual source IPs that can be used for sending
-# Each source can have specific properties like source_address and ehlo_domain
-#
-# Example with specific IP:
-# [source."ip-1"]
-# source_address = "10.0.0.1"
-# ehlo_domain = "mta1.example.com"
-#
-# For Kubernetes, we typically use a shared pool approach where
-# all pods share the same IP pool configuration.
-
+# https://docs.kumomta.com/userguide/configuration/sendingips/
 [source."shared-00"]
-# This is a shared source that will use the default Pod/Node IP
-# In production, you may want to configure specific source_address
-# and ehlo_domain to match your PTR records
 
-###################################
-# IP Pool Configuration
-###################################
-# Define pools that group multiple sources together
-# Messages can be routed to specific pools based on tenant, domain, etc.
-
-# Shared pool for general use
+# shared ip pool weights
 [pool."shared"]
 [pool."shared"."shared-00"]
-# Weight determines relative usage of this source within the pool
-# Higher weight = more messages sent from this source
 weight = 2
 
-# Example: Additional pool for high-volume sending
-# [pool."high-volume"]
-# [pool."high-volume"."shared-00"]
-# weight = 10
+# StirTalk binding group sources (Dallas)
+# These correspond to Momentum bindings StirTalk3 and StirTalk5
+# Note: In Kubernetes, source_address is optional - if not specified, KumoMTA will use the Pod IP
+# To use specific IPs, set KUMOMTA_STIRTALK_3_IP and KUMOMTA_STIRTALK_5_IP environment variables
+# See: https://kumomta.com/blog/moving-from-momentum
+[source."stir-talk-3"]
+# source_address will be set dynamically in init.lua if KUMOMTA_STIRTALK_3_IP is defined
+ehlo_domain = "mx3.talk.stir.com"
+
+[source."stir-talk-5"]
+# source_address will be set dynamically in init.lua if KUMOMTA_STIRTALK_5_IP is defined
+ehlo_domain = "mx5.talk.stir.com"
+
+# StirTalk pool - corresponds to Momentum Binding_Group "StirTalk"
+[pool."StirTalk"]
+[pool."StirTalk"."stir-talk-3"]
+[pool."StirTalk"."stir-talk-5"]

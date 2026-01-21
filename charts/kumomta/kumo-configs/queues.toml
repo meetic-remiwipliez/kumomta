@@ -1,105 +1,48 @@
-###################################
-# Queue Management Configuration for example.com
-###################################
-# 
-# This file configures queue management settings for KumoMTA.
-# These settings control message lifecycle, retry behavior, and routing.
-# They are NOT throttles (those are configured in shaping.toml).
-#
-# See: https://docs.kumomta.com/userguide/configuration/queuemanagement/
-#      https://docs.kumomta.com/userguide/configuration/queuemanagement/#using-the-queues-helper
-#
-# Queue hierarchy (most specific to least specific):
-#   queue.'domain'.'tenant'.'campaign'
-#   queue.'domain'.'tenant'
-#   queue.'domain'
-#   queue.default
-#
-# More specific settings override less specific ones.
-
-###################################
-# Header Configuration
-###################################
-# Define which HTTP headers control queue assignment
+# Configure queue handler directives here
+# see: https://docs.kumomta.com/userguide/configuration/queuemanagement/#using-the-queues-helper
 
 # Allow optional scheduled sends based on this header
-# Format: RFC 3339 timestamp (e.g., "2024-01-15T10:30:00Z")
-# See: https://docs.kumomta.com/reference/message/import_scheduling_header
+# https://docs.kumomta.com/reference/message/import_scheduling_header
 scheduling_header = "X-Schedule"
-
 # Set the tenant from this header
-# Tenants allow logical separation of different sending applications
 tenant_header = "X-Tenant"
-
 # Set the campaign from this header
-# Campaigns allow tracking and separate shaping per campaign
 campaign_header = "X-Campaign"
-
 # The tenant to use if no tenant_header is present
 default_tenant = "default-tenant"
 
-###################################
-# Tenant Configuration
-###################################
-# Define tenant-specific settings
-# Tenants can have different IP pools, age limits, etc.
-
 [tenant.'default-tenant']
-# Which IP pool should be used for this tenant
-# Must match a pool defined in sources.toml
 egress_pool = 'shared'
 
-# Example: Additional tenant for high-volume sending
-# [tenant.'high-volume']
-# egress_pool = 'high-volume'
-# max_age = '12 hours'
-# require_authz = ["api-user-1", "api-user-2"]  # Restrict to specific users
+# StirTalk tenant configuration
+# Messages with X-Tenant: StirTalk will use the StirTalk pool
+[tenant.'StirTalk']
+egress_pool = 'StirTalk'
 
-###################################
-# Default Queue Settings
-###################################
-# These apply to all queues unless overridden by more specific settings
+# [tenant.'mytenant']
+# # Which pool should be used for this tenant
+# egress_pool = 'pool-1'
+# # Override age based on tenant; this overrides
+# # settings at the domain level
+# max_age = '10 hours'
+# # Only the authorized identities are allowed to use this tenant
+# # via the tenant_header
+# require_authz = ["scott"]
 
+# The default set of parameters
 [queue.default]
-# Maximum age before a message is considered expired
-# After this time, the message will be removed from the queue
 max_age = '24 hours'
 
-# Retry interval (default if not specified)
-# How long to wait between delivery attempts
-# retry_interval = '15 mins'
-
-###################################
-# Domain-Specific Queue Settings
-###################################
-# Override settings for specific destination domains
-# These are useful for domains with specific requirements
-
-# Example: Gmail-specific settings
-# Gmail has strict rate limits, so we use conservative settings
+# Base settings for a given destination domain.
+# These are overridden by more specific settings
+# in a tenant or more specific queue
 # [queue.'gmail.com']
 # max_age = '22 hours'
 # retry_interval = '17 mins'
-# max_message_rate = '100/s'  # Per-queue rate limit
 
-# Example: Outlook/Hotmail-specific settings
-# [queue.'outlook.com']
-# max_age = '24 hours'
-# retry_interval = '20 mins'
+# [queue.'gmail.com'.'mytenant']
+# options here for domain=gmail.com AND tenant=mytenant for any unmatched campaign
 
-###################################
-# Tenant + Domain Queue Settings
-###################################
-# Most specific: domain + tenant combination
-# [queue.'gmail.com'.'default-tenant']
-# max_age = '20 hours'
-# retry_interval = '15 mins'
-
-###################################
-# Campaign-Specific Queue Settings
-###################################
-# Most specific: domain + tenant + campaign combination
-# [queue.'gmail.com'.'default-tenant'.'welcome-campaign']
-# max_age = '18 hours'
-# retry_interval = '10 mins'
+# [queue.'gmail.com'.'mytenant'.'welcome-campaign']
+# options here for domain=gmail.com, tenant=mytenant, and campaign='welcome-campaign'
 
