@@ -408,21 +408,28 @@ sink:
 # HTTP Listener Keys Secret configuration
 # This secret stores username/password pairs for HTTP API authentication
 # Each key in the secret is a username, and the value is the password (base64 encoded)
+# 
+# IMPORTANT: Sensitive values (passwords) should be defined in values.secrets.yaml
+# Load secrets with: helm install/upgrade ... --values values.yaml --values values.secrets.yaml
+# See values.secrets.yaml.example for the structure
 httpListenerKeys:
   enabled: true
   secretName: http-listener-keys
   # Users configuration: username -> password (plain text, will be base64 encoded)
   # Generate passwords using: openssl rand -hex 16
-  users:
-    # Default user for testing (password: "default-password")
-    # Change this in production!
-    user1: "default-password"
-    # Add more users as needed:
-    # admin: "your-secure-password-here"
-    # api-user: "another-secure-password"
+  # NOTE: Define actual passwords in values.secrets.yaml (not committed to git)
+  # Example structure (put actual values in values.secrets.yaml):
+  # users:
+  #   user1: "your-secure-password-here"
+  #   admin: "another-secure-password"
+  users: {}
 
 # DKIM Keys Secret configuration (per domain/binding group)
 # Each domain/binding group has its own secret configuration
+# 
+# IMPORTANT: Sensitive values (private keys) should be defined in values.secrets.yaml
+# Load secrets with: helm install/upgrade ... --values values.yaml --values values.secrets.yaml
+# See values.secrets.yaml.example for the structure
 dkimKeys:
   # StirTalk binding group - talk.stir.com domain
   talkStirCom:
@@ -431,34 +438,8 @@ dkimKeys:
     # Private key content (plain text, will be base64 encoded by Helm)
     # This key is loaded from configuration_momentum/global/dk/talk.stir.com/052024s2048.key
     # IMPORTANT: The key filename in the secret must match the filename specified in dkim_talk.stir.com.toml
-    privateKey: |
-      -----BEGIN RSA PRIVATE KEY-----
-      MIIEpAIBAAKCAQEA1IZBuNnVSGgRB0TGOW+sLoaRzqyU/BahOB8Gj7Cc3+9b3jNv
-      5CGxJrZWBMWj8vl04zXo9xJ89vDObhpNdwC48WPhUgA9IeHZsgpGjQPBbqD70uvt
-      4QwkGGvBEFVhqPpXd8s56XT8HQckmKSWSCccn3t4izjlBBsarLLbXmJFSHs5xWGa
-      OPwj52coPP+qdyjB2I3wZx0FRMN6R9l9rgCs3GtCadgv08LsJLsu4sy+fzYWdP6d
-      D08rgHSUlJ72feV/vdtKN3PL4vGb+CrMDGVifeNOl5NFlB/zM7keM73hIaEcpPs7
-      /b7nJ/6PgYHcoz98XWOPI+vxAPzZXacZAwEH2QIDAQABAoIBAQDDPyjIG5BfugPS
-      6rM190t3Xvg7qMAjLOMmfRJ5Fie5b9y1sgncy7tFtoQmVDEAO3/Qcim6O4kFEUyF
-      SLLcXpSKaFmMDV4cb7KhZ+FTEh02dr2EFG5xr8bFjNFNITPcm0maa+Gjgm9Qd8x+
-      U88hMJWSS0v+k+GKuR/zg0oYVy4RnD6pnvcdi18FjfcyPLh9QHy1lriTBo5kYYCB
-      FRWaV9Do0kEr2vEcL4z3Nn4xLCZ3sa+ybeAkgEEtLRI+dJMer8Bnba6yYzjVVI8V
-      ZckZNLXyXiKzswQQuGFHIVm+vxxN6+q1/i/ckPY/+B6hatpXzNcy5SmloYWdxVxk
-      N8PiTvURAoGBAPeTGlsxwdcIQ12xB3N3PMS3lED5S7r2mztdEIkplcXSz0O7Sl+e
-      3ce7VXV3cRjSCxwaB22vDxAEssivwCJTbIM4q0V65zbI0swVdzKdvuXJUuBP7X89
-      26FcXEKRzoCBOxY+THWpOtichqUMhDrCKyV0A+JEqFc8hz7gDj6JyT41AoGBANvB
-      yvPr2RRFcIRaHNiCxL+iRtWiCuNsZIIAHBsUbALazvhrHEwiipB1/DMz08oFn3KH
-      gFbI6qrtLJnuttibpRG7ZOTgh1jy3H58+w/7hg2mmLNJx2huffdjrPEyk0gzEulJ
-      /dsJqI43L8JhhyfHt2KrS4twzwJr3ikBkMZChueVAoGBAKML3Sq7/TX5uiwE/6w6
-      lenUIS4dQJOz/427/7zlhz7OVDP+L8ADp3n31RNUg0ZeZnSua7//r4LUJU5n+Lhi
-      iq9s7dcHVyjMX4+Kf4L1Qpig2xThbr8C5RdC9Xvd/MrC0UAX7VD8D8ZCZ6ZhNOBh
-      qfqzii9FGjzBnyx4cMkdA00VAoGALfZDR279kRLQ7K2YOORo2BfNruLcWiKShuoU
-      9sj3qkUvYp+sZHQY/QvgOqlNU4SHi8GxYvVUt3kxieR2k6lCBgpmmMQpKr5oxX/I
-      VthpejNs3prAvSPW7sYHJs9IJKKiAu75zDUh7tS2BXa2eOh5f4aKH1jxwvTimzr7
-      l6vUYV0CgYBd20PQKIOX6wVHNnjBnrZH8BBsgILbK64Oi0R+e+oyM13lmSdN6ayE
-      Xlz+qSDyRL9ez93oqoD/iJxk4dh+2BRxvQ5TkvjDQ+NljAVIPdGavAHKupVhb9MT
-      wTidA6v6pTLrSCY3dHPTIsesTYhuy45WEL4ZqAYtVh34K4lPPpmAHg==
-      -----END RSA PRIVATE KEY-----
+    # NOTE: Define actual private key in values.secrets.yaml (not committed to git)
+    privateKey: ""
 
 ## Debug pod with network tools (ping, curl, netcat, etc.)
 ## Useful for debugging network connectivity issues
