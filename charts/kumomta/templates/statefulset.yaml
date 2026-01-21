@@ -30,13 +30,29 @@ spec:
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- with .Values.initContainers }}
-      initContainers:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
       serviceAccountName: {{ include "kumomta.serviceAccountName" . }}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      initContainers:
+      - name: wait-for-tsa
+        image: busybox:latest
+        command:
+        - /bin/sh
+        - -c
+        - |
+          set -e
+          TSA_SERVICE="{{ include "kumomta.fullname" . }}-tsa.{{ .Release.Namespace }}.svc.cluster.local"
+          TSA_PORT="{{ .Values.tsa.service.httpPort }}"
+          echo "Waiting for TSA service to be ready at ${TSA_SERVICE}:${TSA_PORT}..."
+          until wget --spider --timeout=2 --tries=1 "http://${TSA_SERVICE}:${TSA_PORT}/get_config_v1/shaping.toml" 2>/dev/null; do
+            echo "TSA not ready yet, waiting 2 seconds..."
+            sleep 2
+          done
+          echo "TSA is ready!"
+        {{- if .Values.initContainerResources }}
+        resources:
+          {{- toYaml .Values.initContainerResources | nindent 10 }}
+        {{- end }}
       containers:
         - name: {{ .Chart.Name }}
           securityContext:

@@ -59,14 +59,10 @@ spec:
           lifecycle:
             {{- toYaml . | nindent 12}}
           {{- end }}
-          {{- if and .Values.tsa.livenessProbe (ne .Values.tsa.livenessProbe nil) }}
           livenessProbe:
             {{- toYaml .Values.tsa.livenessProbe | nindent 12 }}
-          {{- end }}
-          {{- if and .Values.tsa.readinessProbe (ne .Values.tsa.readinessProbe nil) }}
           readinessProbe:
             {{- toYaml .Values.tsa.readinessProbe | nindent 12 }}
-          {{- end }}
           resources:
             {{- toYaml .Values.tsa.resources | nindent 12 }}
           {{- with .Values.tsa.volumeMounts }}

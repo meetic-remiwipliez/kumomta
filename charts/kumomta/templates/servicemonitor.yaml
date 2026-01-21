@@ -3,10 +3,15 @@ apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
   name: {{ include "kumomta.fullname" . }}
+  labels:
+    {{- include "kumomta.labels" . | nindent 4 }}
+    {{- with .Values.serviceMonitor.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
 spec:
   endpoints:
     - path: /metrics
-      targetPort: 8080
+      targetPort: {{ .Values.serviceMonitor.targetPort | default "http" }}
       {{- with .Values.serviceMonitor.basicAuth }}
       basicAuth:
       {{- toYaml . | nindent 8 }}
