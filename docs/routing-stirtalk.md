@@ -7,7 +7,7 @@ This document describes the routing/policy configuration for assigning messages 
 ## 🔄 Momentum → KumoMTA Mapping
 
 In Momentum, routing is done via:
-- `validate_set_binding.lua` which assigns binding groups via database queries
+- `validate_set_binding.lua` (Momentum script in `configuration_momentum/global/mtch/`, not in KumoMTA) which assigns binding groups via database queries
 - Context variables `BindingGroup` or `Binding`
 - Headers (X-Campaign-Data, X-Sender)
 - IPs (listener IP, sending IP)

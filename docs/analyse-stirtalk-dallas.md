@@ -246,7 +246,7 @@ Loads the StirTalk module and wires it into the processing flow.
 
 ### Required Adaptations
 
-1. **Adaptive settings (aol.com)**: Momentum’s adaptive values are migrated using the upper values. Dynamic adaptation can be implemented via KumoMTA Traffic Shaping Automation (TSA) if needed.
+1. **Adaptive settings (aol.com)**: Momentum's adaptive values are migrated using the upper values. Dynamic adaptation can be implemented via KumoMTA Traffic Shaping Automation (TSA) if needed.
 
 2. **TLS certificates**: Must be mounted in the Kubernetes container via secrets/configmaps. Paths in KumoMTA may differ from Momentum.
 

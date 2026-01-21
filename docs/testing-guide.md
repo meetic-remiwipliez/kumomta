@@ -79,7 +79,7 @@ Tests KumoMTA SMTP listener using the `test_example.com.json` file.
 4. Sends the email via SMTP using `swaks` (if available) or `telnet`/`nc`
 5. Displays the result
 
-**Note:** The SMTP listener must be enabled in the KumoMTA configuration. By default, it is disabled in `init.lua`. To enable it, uncomment:
+**Note:** The SMTP listener must be enabled in the KumoMTA configuration. In `kumomta-k8s-demo`, it is enabled in `init.lua` by default. If your chart has it disabled, add or uncomment:
 ```lua
 kumo.start_esmtp_listener({
   listen = "0.0.0.0:2500",

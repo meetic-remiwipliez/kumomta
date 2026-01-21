@@ -100,12 +100,4 @@ To disable sink mode and send real email:
 
 ## 📝 Configuration in init.lua
 
-Sink mode is handled in `kumo-configs/init.lua`:
-
-```lua
-if os.getenv("KUMOMTA_SINK_ENABLED") == "true" then
-  msg:set_meta("routing_domain", os.getenv("KUMOMTA_SINK_ENDPOINT") or "kumomta-sink.default.svc.cluster.local")
-end
-```
-
-This sets `routing_domain` so all email is sent to the sink.
+Sink mode is handled in the **`get_queue_config`** handler in `kumo-configs/init.lua` (registered before `queue_helper:setup()`). When `KUMOMTA_SINK_ENABLED` is `"true"`, it returns a queue config with `protocol.smtp.mx_list = { sink_target }` so all deliveries go to the sink. `sink_target` is `KUMOMTA_SINK_ENDPOINT` (DNS name) or `[KUMOMTA_SINK_IP]` if `KUMOMTA_SINK_IP` is set. There is no use of `routing_domain` for sink.
