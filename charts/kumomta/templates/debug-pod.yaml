@@ -1,0 +1,26 @@
+{{- if .Values.debug.enabled }}
+apiVersion: v1
+kind: Pod
+metadata:
+  name: {{ include "kumomta.fullname" . }}-debug
+  namespace: {{ .Release.Namespace }}
+  labels:
+    helm.sh/chart: {{ include "kumomta.chart" . }}
+    app.kubernetes.io/name: {{ include "kumomta.name" . }}-debug
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: debug
+    {{- if .Chart.AppVersion }}
+    app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
+    {{- end }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+spec:
+  restartPolicy: Never
+  containers:
+  - name: network-tools
+    image: {{ .Values.debug.image.repository }}:{{ .Values.debug.image.tag }}
+    imagePullPolicy: {{ .Values.debug.image.pullPolicy }}
+    command: ["/bin/sh"]
+    args: ["-c", "sleep infinity"]
+    resources:
+      {{- toYaml .Values.debug.resources | nindent 6 }}
+{{- end }}
