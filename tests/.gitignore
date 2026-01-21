@@ -1,0 +1,17 @@
+# Environnement virtuel Python
+.venv/
+venv/
+env/
+
+# Fichiers CSV de résultats
+performance_*.csv
+
+# Fichiers Python compilés
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Fichiers temporaires
+*.log
+*.tmp

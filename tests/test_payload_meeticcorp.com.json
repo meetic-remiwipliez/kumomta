@@ -1,0 +1,15 @@
+{
+  "from_email": "test@talk.stir.com",
+  "to_email": "r.wipliez@meetic-corp.com",
+  "from_name": "KumoMTA Test",
+  "subject": "Test KumoMTA - {{TIMESTAMP}}",
+  "text_body": "Test message from KumoMTA\n\nThis is a test message sent via KumoMTA to verify the listener is working correctly.\n\nBinding Group: StirTalk\nDomain: talk.stir.com\nTimestamp: {{TIMESTAMP}}",
+  "html_body": "<html><body><p>Test message from KumoMTA</p><p>This is a test message sent via KumoMTA to verify the listener is working correctly.</p><p><strong>Binding Group:</strong> StirTalk<br><strong>Domain:</strong> talk.stir.com<br><strong>Timestamp:</strong> {{TIMESTAMP}}</p></body></html>",
+  "reply_to_email": "test@talk.stir.com",
+  "reply_to_name": "KumoMTA Test",
+  "headers": {
+    "X-Custom-Header": "Custom-Value",
+    "X-Test-ID": "test-{{TIMESTAMP}}",
+    "List-Unsubscribe": "<mailto:unsubscribe@g3.match.com>"
+  }
+}
